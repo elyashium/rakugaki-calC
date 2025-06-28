@@ -7,70 +7,60 @@ import axios from "axios"
 
 
 
-interface Response {
+interface ApiResponse {
     expr: string;
     result: string;
-    assing: boolean;
+    assing: boolean; // Note: This might be a typo for 'assign'
 };
 
-interface result {
+interface CalculationResult {
     expression: string;
     result: string;
-
-    
 }
 
-
-const canvasRef = useRef<HTMLCanvasElement>(null)
-
-const [color, setColor] = useState('rgb(255, 255, 255)');
-const [reset, setReset] = useState(false);
-const [result, setResult] = useState<result>({ expression: "", result: "" });
-const [dictOfVars, setDictOfVars] = useState({});
-
-
-const sendData = async () => {
-    const canvas = canvasRef.current;
-    if (canvas) {
-        const response = await axios({
-            method: "post",
-            url: `${import.meta.env.VITE_API_URL}/calculate`,
-            data: {
-                data: canvas.toDataURL('image/png'),
-                dict_of_vars: dictOfVars,
-            }
-        })
-        const data = response.data as Response;
-        console.log('data', data);
-    }
-}
-
-useEffect(() => {
-    if (reset) {
-        resetCanvas();
-        setReset(false);
-    }
-}, [reset]);
-//using reset as dependency array because the canvas needs to be 
-//reset when the reset button is clicked
+export default function Home() {
+    const canvasRef = useRef<HTMLCanvasElement>(null)
+    const [isDrawing, setIsDrawing] = useState(false)
+    const [color, setColor] = useState('rgb(255, 255, 255)');
+    const [reset, setReset] = useState(false);
+    const [result, setResult] = useState<CalculationResult>({ expression: "", result: "" });
+    const [dictOfVars, setDictOfVars] = useState({});
 
 
-
-const resetCanvas = () => {
-    const canvas = canvasRef.current;
-    if (canvas) {
-        const context = canvas.getContext("2d")
-        if (context) {
-            context.clearRect(0, 0, canvas.width, canvas.height);
+    const sendData = async () => {
+        const canvas = canvasRef.current;
+        if (canvas) {
+            const response = await axios({
+                method: "post",
+                url: `${import.meta.env.VITE_API_URL}/calculate`,
+                data: {
+                    data: canvas.toDataURL('image/png'),
+                    dict_of_vars: dictOfVars,
+                }
+            })
+            const data = response.data as ApiResponse;
+            console.log('data', data);
         }
     }
-}
 
+    const resetCanvas = () => {
+        const canvas = canvasRef.current;
+        if (canvas) {
+            const context = canvas.getContext("2d")
+            if (context) {
+                context.clearRect(0, 0, canvas.width, canvas.height);
+            }
+        }
+    }
 
-export default function index() {
-    
-    const [isDrawing, setIsDrawing] = useState(false)
-
+    useEffect(() => {
+        if (reset) {
+            resetCanvas();
+            setReset(false);
+        }
+    }, [reset]);
+    //using reset as dependency array because the canvas needs to be 
+    //reset when the reset button is clicked
 
     //mounting the canvas with useEffect
     useEffect(() => {
@@ -112,7 +102,7 @@ export default function index() {
         if (canvas) {
             const context = canvas.getContext("2d")
             if (context) {
-                context.strokeStyle = "color"
+                context.strokeStyle = color;
                 context.lineTo(e.nativeEvent.clientX, e.nativeEvent.clientY)
                 context.stroke()
             }
