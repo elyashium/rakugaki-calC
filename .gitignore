@@ -30,6 +30,7 @@ __pycache__
 server/__pycache__
 
 server/apps/__pycache__
+server/apps/calculator/__pycache__
 server/venv
 server/venv/*
 server/venv/
