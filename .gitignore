@@ -26,3 +26,17 @@ dist-ssr
 .env
 .env.local
 .venv
+__pycache__
+server/__pycache__
+
+server/apps/__pycache__
+server/venv
+server/venv/*
+server/venv/
+server/venv/bin/
+server/venv/bin/activate
+server/venv/bin/activate.bat
+server/venv/bin/activate.fish
+server/venv/bin/activate.ps1
+server/venv/bin/activate.sh
+server/venv/bin/activate.csh

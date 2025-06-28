@@ -10,8 +10,8 @@ import { IconSun, IconMoon } from "@tabler/icons-react"
 
 interface ApiResponse {
     expr: string;
-    result: string;
-    assing: boolean; // Note: This might be a typo for 'assign'
+    result: any;
+    assign: boolean; // Fixed the typo from 'assing' to 'assign'
 };
 
 interface CalculationResult {
@@ -32,16 +32,36 @@ export default function Home() {
     const sendData = async () => {
         const canvas = canvasRef.current;
         if (canvas) {
-            const response = await axios({
-                method: "post",
-                url: `${import.meta.env.VITE_API_URL}/calculate`,
-                data: {
-                    data: canvas.toDataURL('image/png'),
-                    dict_of_vars: dictOfVars,
+            try {
+                const response = await axios({
+                    method: "post",
+                    url: `${import.meta.env.VITE_API_URL}/calculate/`,
+                    data: {
+                        data: canvas.toDataURL('image/png'),
+                        dict_of_vars: dictOfVars,
+                    },
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const data = response.data;
+                console.log('data', data);
+                
+                if (data && Array.isArray(data) && data.length > 0) {
+                    const firstResult = data[0];
+                    setResult({
+                        expression: firstResult.expr || "",
+                        result: firstResult.result || ""
+                    });
                 }
-            })
-            const data = response.data as ApiResponse;
-            console.log('data', data);
+            } catch (error) {
+                console.error("Error sending data:", error);
+                setResult({
+                    expression: "Error",
+                    result: "Failed to process the image. Please try again."
+                });
+            }
         }
     }
 

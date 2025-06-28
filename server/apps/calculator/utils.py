@@ -1,4 +1,4 @@
-from google.generativeai import genai
+import google.generativeai as genai
 import ast
 import json
 from PIL import Image
@@ -7,9 +7,9 @@ from constants import GEMINI_API_KEY
 genai.configure(api_key=GEMINI_API_KEY)
 #since we dont want the model to run everytime, just one intilaistion before 
 #the analyse function.
-model =genai.GenerativeModel("gemini-2.0-flash")
+model =genai.GenerativeModel("gemini-1.5-flash")
 
-def analyze(img : image, dict_of_vars : dict):
+def analyze(img : Image, dict_of_vars : dict):
     #dumping the dict of vars into a json string for passing into the prompt
     dict_of_vars_json = json.dumps(dict_of_vars)
 
@@ -30,7 +30,7 @@ def analyze(img : image, dict_of_vars : dict):
         f"5. Detecting Abstract Concepts that a drawing might show, such as love, hate, jealousy, patriotism, or a historic reference to war, invention, discovery, quote, etc. USE THE SAME FORMAT AS OTHERS TO RETURN THE ANSWER, where 'expr' will be the explanation of the drawing, and 'result' will be the abstract concept. "
         f"Analyze the equation or expression in this image and return the answer according to the given rules: "
         f"Make sure to use extra backslashes for escape characters like \\f -> \\\\f, \\n -> \\\\n, etc. "
-        f"Here is a dictionary of user-assigned variables. If the given expression has any of these variables, use its actual value from this dictionary accordingly: {dict_of_vars_str}. "
+        f"Here is a dictionary of user-assigned variables. If the given expression has any of these variables, use its actual value from this dictionary accordingly: {dict_of_vars_json}. "
         f"DO NOT USE BACKTICKS OR MARKDOWN FORMATTING. "
         f"PROPERLY QUOTE THE KEYS AND VALUES IN THE DICTIONARY FOR EASIER PARSING WITH Python's ast.literal_eval."
     )

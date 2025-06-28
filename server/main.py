@@ -79,9 +79,7 @@ app = FastAPI(lifespan=lifespan)
 # our frontend to talk to our backend.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=['*'],  # This allows all origins. For production, you should
-                          # restrict this to your actual frontend's domain for security.
-                          # e.g., ["https://your-domain.com"]
+    allow_origins=["http://localhost:5173"],  # Specifically allow the frontend origin
     allow_credentials=True, # Allows cookies to be sent with requests.
     allow_methods=["*"],    # Allows all HTTP methods (GET, POST, etc.).
     allow_headers=["*"],    # Allows all request headers.

@@ -4,11 +4,11 @@
 
 # `APIRouter` is a class from FastAPI that allows you to create a "mini" FastAPI application.
 # You can define routes on it, and then include this router in your main `app` instance.
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
+from schema import ImagePayload # Import the Pydantic model for our request body.
+from .utils import analyze # Correctly import the 'analyze' function.
 import base64
 from io import BytesIO
-from apps.calculator.utils import analyze_image
-from schema import ImageData, ImagePayload
 from PIL import Image
 
 # Create an instance of APIRouter. This `router` object is what we'll use to
@@ -24,7 +24,7 @@ router = APIRouter()
 # - `response_model=dict`: This tells FastAPI what the shape of the response will be.
 #   While we are returning a dictionary here, you could also use a Pydantic model
 #   from `schema.py` for stronger validation and better documentation.
-@router.post("/", response_model=dict)
+@router.post("/", response_model=list)
 async def calculate_from_image(payload: ImagePayload):
     """
     This is the main endpoint for the calculator. It receives the drawing of a
@@ -38,37 +38,28 @@ async def calculate_from_image(payload: ImagePayload):
     Returns:
         A dictionary containing the recognized expression and the calculated result.
     """
-    # The `payload` argument now contains the validated data from the request body.
-    # You can access its fields like a normal Python object.
-    image_data_url = payload.data
-    variables = payload.dict_of_vars
+    try:
+        # The `payload` argument now contains the validated data from the request body.
+        # You can access its fields like a normal Python object.
+        image_data_url = payload.data
+        variables = payload.dict_of_vars
 
-    # --- Placeholder for your Core Logic ---
-    # This is where you would:
-    # 1. Decode the `image_data_url` (it's a Base64 string) into an image.
-    # 2. Pass the image to your machine learning model (e.g., Gemini) to recognize
-    #    the handwritten expression.
-    # 3. Take the recognized expression string and safely evaluate it.
-    # 4. Handle any variables passed in `payload.dict_of_vars`.
-    #
-    # For now, we are just returning a mock response.
-    print(f"Received image data URL (first 50 chars): {image_data_url[:50]}...")
-    print(f"Received variables: {variables}")
+        # Extract the base64 encoded image data
+        if "," in image_data_url:
+            header, encoded = image_data_url.split(",", 1)
+            image_data = base64.b64decode(encoded)
+            image = Image.open(BytesIO(image_data))
 
-    return {
-        "expression": "2 + 2 (from image)",
-        "result": "4",
-        "assign": False
-    }
+            # --- Calling the analyze function ---
+            # Now we call the imported 'analyze' function with the processed image and variables.
+            analysis_result = analyze(img=image, dict_of_vars=variables)
 
-@router.post('')
-async def run(data: ImageData):
-    image_data = base64.b64decode(data.image.split(",")[1])  # Assumes data:image/png;base64,<data>
-    image_bytes = BytesIO(image_data)
-    image = Image.open(image_bytes)
-    responses = analyze_image(image, dict_of_vars=data.dict_of_vars)
-    data = []
-    for response in responses:
-        data.append(response)
-    print('response in route: ', response)
-    return {"message": "Image processed", "data": data, "status": "success"}
+            print(f"Received image data URL (first 50 chars): {image_data_url[:50]}...")
+            print(f"Received variables: {variables}")
+
+            return analysis_result
+        else:
+            raise HTTPException(status_code=400, detail="Invalid image data format")
+    except Exception as e:
+        print(f"Error processing request: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error processing request: {str(e)}")
