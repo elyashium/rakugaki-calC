@@ -4,6 +4,7 @@ import { SWATCHES } from "@/constants"
 import { ColorSwatch, Group } from "@mantine/core"
 import { Button } from "@mantine/core"
 import axios from "axios"
+import { IconSun, IconMoon } from "@tabler/icons-react"
 
 
 
@@ -25,6 +26,7 @@ export default function Home() {
     const [reset, setReset] = useState(false);
     const [result, setResult] = useState<CalculationResult>({ expression: "", result: "" });
     const [dictOfVars, setDictOfVars] = useState({});
+    const [canvasbg, setCanvasbg] = useState('black');
 
 
     const sendData = async () => {
@@ -68,19 +70,20 @@ export default function Home() {
         if (canvas) {
             const context = canvas.getContext("2d")
             if (context) {
+                canvas.style.background = canvasbg;
                 context.lineWidth = 5; //setting the line width
                 context.lineCap = "round" //setting the line cap
                 canvas.width = window.innerWidth;
                 canvas.height = window.innerHeight - canvas.offsetTop; //setting the height of the canvas
             }
         }
-    }, []);
+    }, [canvasbg]);
 
     const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
         const canvas = canvasRef.current;
         if (canvas) {
             canvas.style.cursor = "crosshair"
-            canvas.style.background = "black"
+            // canvas.style.background = canvasbg
             const context = canvas.getContext("2d")
             //this context is used to draw on the canvas
             if (context) {
@@ -109,45 +112,63 @@ export default function Home() {
         }
     }
 
-
+    // Define common button styles based on canvasbg
+    const getButtonStyles = () => ({
+        backgroundColor: canvasbg === 'black' ? 'white' : 'black',
+        color: canvasbg === 'black' ? 'black' : 'white'
+    });
 
     return (
         <>
-            <div className="grid grid-cols gap 2">
+            <div className="flex flex-row gap-5 justify-center items-center">
 
                 <Button
                     onClick={() => setReset(true)}
-                    variant = "default"
-                    color="black"
-                    className="z-20 bg-black text-white"
+                    variant="default"
+                    className="z-20"
+                    style={getButtonStyles()}
                 >
                     Reset Canvas
                 </Button>
 
                 <Group className="z-20">
-                    {/* here will map the color swatches*/}
-                    {SWATCHES.map((swatchColor: string) => (
-
-                        <ColorSwatch
-                            key={swatchColor}
-                            color={swatchColor}
-                            onClick={() => setColor(swatchColor)}
-                        />
-
-                    ))}
+                    {/* Add container for swatches with hover effect */}
+                    <div className="flex space-x-1">
+                        {SWATCHES.map((swatchColor: string) => (
+                            <div 
+                                key={swatchColor} 
+                                className="transition-transform hover:scale-125 hover:-translate-y-1 duration-200"
+                            >
+                                <ColorSwatch
+                                    color={swatchColor}
+                                    onClick={() => setColor(swatchColor)}
+                                    style={{ cursor: 'pointer', width: '32px', height: '32px' }}
+                                />
+                            </div>
+                        ))}
+                    </div>
                 </Group>
 
                 <Button
                     onClick={() => sendData()}
-                    // variant = "default"
-                    color="black"
-                    className="z-20 bg-black text-white"
+                    variant="default"
+                    className="z-20"
+                    style={getButtonStyles()}
                 >
                     Calculate
                 </Button>
 
-
+                <Button
+                    onClick={() => setCanvasbg(canvasbg === 'black' ? 'white' : 'black')}
+                    variant="default"
+                    className="z-20 flex items-center justify-center"
+                    style={getButtonStyles()}
+                    aria-label={`Switch to ${canvasbg === 'black' ? 'white' : 'black'} background`}
+                >
+                    {canvasbg === 'black' ? <IconSun size={20} /> : <IconMoon size={20} />}
+                </Button>
             </div>
+
             <canvas
                 ref={canvasRef}
                 id="canvas"
@@ -157,8 +178,6 @@ export default function Home() {
                 onMouseUp={stopDrawing}
                 onMouseOut={stopDrawing}
             />
-
         </>
-
     )
 }
