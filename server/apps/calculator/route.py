@@ -66,6 +66,20 @@ async def calculate_from_image(payload: ImagePayload):
             # If the list is empty, provide a default result
             if len(analysis_result) == 0:
                 analysis_result = [{"expr": "No expression detected", "result": "N/A", "assign": False}]
+            
+            # Convert all results to proper format
+            for item in analysis_result:
+                # Ensure all required fields are present
+                if "expr" not in item:
+                    item["expr"] = "Unknown expression"
+                if "result" not in item:
+                    item["result"] = "N/A"
+                if "assign" not in item:
+                    item["assign"] = False
+                    
+                # Convert numeric values to strings for JSON serialization if needed
+                if isinstance(item["result"], (int, float)):
+                    item["result"] = str(item["result"])
                 
             # Print the response in JSON format for debugging
             print(json.dumps(analysis_result))
@@ -75,4 +89,6 @@ async def calculate_from_image(payload: ImagePayload):
             raise HTTPException(status_code=400, detail="Invalid image data format")
     except Exception as e:
         print(f"Error processing request: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error processing request: {str(e)}")

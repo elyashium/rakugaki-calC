@@ -1,6 +1,7 @@
 import google.generativeai as genai
 import ast
 import json
+import re
 from PIL import Image
 from constants import GEMINI_API_KEY
 
@@ -37,14 +38,64 @@ def analyze(img : Image, dict_of_vars : dict):
     response = model.generate_content([prompt, img])
     print(response.text)
     answers = []
+    
     try:
+        # First try direct ast.literal_eval
         answers = ast.literal_eval(response.text)
     except Exception as e:
-        print(f"Error in parsing response from Gemini API: {e}")
+        print(f"Error in direct parsing: {e}")
+        
+        try:
+            # Try to extract JSON from the response
+            # Look for JSON pattern in the response
+            json_match = re.search(r'\[\s*{.*}\s*\]', response.text, re.DOTALL)
+            if json_match:
+                json_str = json_match.group(0)
+                # Replace single quotes with double quotes for proper JSON
+                json_str = json_str.replace("'", '"')
+                answers = json.loads(json_str)
+                print(f"Extracted JSON: {json_str}")
+            else:
+                # Try to extract key information directly
+                expr_match = re.search(r"expr[\'\"]\s*:\s*[\'\"](.*?)[\'\"]", response.text)
+                result_match = re.search(r"result[\'\"]\s*:\s*([\'\"]?.*?[\'\"]?)[,}]", response.text)
+                
+                if expr_match and result_match:
+                    expr = expr_match.group(1)
+                    result_str = result_match.group(1).strip('\'"')
+                    
+                    # Try to convert result to number if possible
+                    try:
+                        result = int(result_str)
+                    except ValueError:
+                        try:
+                            result = float(result_str)
+                        except ValueError:
+                            result = result_str
+                            
+                    answers = [{"expr": expr, "result": result}]
+                    print(f"Extracted expression: {expr}, result: {result}")
+        except Exception as nested_e:
+            print(f"Error in alternative parsing: {nested_e}")
+    
     print('returned answer ', answers)
+    
+    # If we still have no answers, create a default one based on the response text
+    if not answers:
+        # Try to extract any mathematical expression from the response
+        math_expr = re.search(r'(\d+[\+\-\*/]\d+(?:[\+\-\*/]\d+)*)', response.text)
+        if math_expr:
+            expr = math_expr.group(1)
+            try:
+                # Safely evaluate the expression
+                result = eval(expr, {"__builtins__": {}})
+                answers = [{"expr": expr, "result": result}]
+            except:
+                pass
+    
+    # Add assign field if missing
     for answer in answers:
-        if 'assign' in answer:
-            answer['assign'] = True
-        else:
+        if 'assign' not in answer:
             answer['assign'] = False
+            
     return answers
