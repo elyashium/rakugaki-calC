@@ -1,0 +1,31 @@
+# Define the services (containers) for your application
+services:
+  backend:
+    # This configuration tells Docker Compose to pull the image from Docker Hub
+    image: elyashium/rakugaki-calc-backend:latest
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    # Attach this service to our custom network
+    networks:
+      - app-network
+    # Example for loading environment variables from a file
+    # env_file:
+    #   - ./server/.env
+
+  frontend:
+    image: elyashium/rakugaki-calc-client:latest
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    # This service depends on the backend starting first
+    depends_on:
+      - backend
+    # Attach this service to our custom network
+    networks:
+      - app-network
+
+# Define the custom network
+networks:
+  app-network:
+    driver: bridge
