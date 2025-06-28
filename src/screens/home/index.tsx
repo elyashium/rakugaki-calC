@@ -13,49 +13,50 @@ interface Response {
     assing: boolean;
 };
 
-interface result{
-    expression : string;
+interface result {
+    expression: string;
     result: string;
 }
 
 
 const [color, setColor] = useState('rgb(255, 255, 255)');
-const[reset, setReset] = useState(false);
-const[result, setResult] = useState<result>({expression: "", result: ""});
-const[dictOfVars, setDictOfVars] = useState({});
+const [reset, setReset] = useState(false);
+const [result, setResult] = useState<result>({ expression: "", result: "" });
+const [dictOfVars, setDictOfVars] = useState({});
 
 
-const sendData = async ()=>{
+const sendData = async () => {
     const canvas = canvasRef.current;
-    if(canvas){
+    if (canvas) {
         const response = await axios({
-            method : "post",
-            url : `${import.meta.env.VITE_API_URL}/calculate`,
-            data:{
+            method: "post",
+            url: `${import.meta.env.VITE_API_URL}/calculate`,
+            data: {
                 data: canvas.toDataURL('image/png'),
-                dict_of_vars : dictOfVars,
+                dict_of_vars: dictOfVars,
             }
         })
         const data = response.data as Response;
         console.log('data', data);
+    }
 }
 
-useEffect(()=>{
-if(reset){
-    resetCanvas();
-    setReset(false);
-}
-},[reset]);
+useEffect(() => {
+    if (reset) {
+        resetCanvas();
+        setReset(false);
+    }
+}, [reset]);
 //using reset as dependency array because the canvas needs to be 
 //reset when the reset button is clicked
 
 
 
-const resetCanvas = () =>{
+const resetCanvas = () => {
     const canvas = canvasRef.current;
-    if(canvas){
+    if (canvas) {
         const context = canvas.getContext("2d")
-        if(context){
+        if (context) {
             context.clearRect(0, 0, canvas.width, canvas.height);
         }
     }
@@ -63,70 +64,107 @@ const resetCanvas = () =>{
 
 
 export default function index() {
-const canvasRef = useRef<HTMLCanvasElement>(null)
-const [isDrawing, setIsDrawing] = useState(false)
+    const canvasRef = useRef<HTMLCanvasElement>(null)
+    const [isDrawing, setIsDrawing] = useState(false)
 
 
-//mounting the canvas with useEffect
-useEffect(()=>{
-const canvas = canvasRef.current;
-if(canvas){
-    const context = canvas.getContext("2d")
-        if(context){
-        context.lineWidth = 5; //setting the line width
-        context.lineCap = "round" //setting the line cap
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight - canvas.offsetTop; //setting the height of the canvas
+    //mounting the canvas with useEffect
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (canvas) {
+            const context = canvas.getContext("2d")
+            if (context) {
+                context.lineWidth = 5; //setting the line width
+                context.lineCap = "round" //setting the line cap
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight - canvas.offsetTop; //setting the height of the canvas
+            }
+        }
+    }, []);
+
+    const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
+        const canvas = canvasRef.current;
+        if (canvas) {
+            canvas.style.cursor = "crosshair"
+            canvas.style.background = "black"
+            const context = canvas.getContext("2d")
+            //this context is used to draw on the canvas
+            if (context) {
+                context.beginPath();
+                context.moveTo(e.nativeEvent.clientX, e.nativeEvent.clientY)
+                setIsDrawing(true)
+            }
         }
     }
-}, []);
 
-const startDrawing = (e : React.MouseEvent<HTMLCanvasElement>) =>{
-    const canvas = canvasRef.current;
-    if(canvas){
-        canvas.style.cursor = "crosshair"
-        canvas.style.background= "black"
-        const context = canvas.getContext("2d")
-        //this context is used to draw on the canvas
-        if(context){
-            context.beginPath();
-            context.moveTo(e.nativeEvent.clientX, e.nativeEvent.clientY)
-            setIsDrawing(true)
+    const stopDrawing = () => {
+        setIsDrawing(false)
+    }
+
+    const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
+        if (!isDrawing) return;
+
+        const canvas = canvasRef.current;
+        if (canvas) {
+            const context = canvas.getContext("2d")
+            if (context) {
+                context.strokeStyle = "color"
+                context.lineTo(e.nativeEvent.clientX, e.nativeEvent.clientY)
+                context.stroke()
+            }
         }
     }
-}
-
-const stopDrawing = () =>{
-    setIsDrawing(false)
-}
-
-const draw =(e: React.MouseEvent<HTMLCanvasElement>)=>{
-    if(!isDrawing) return;
-
-    const canvas = canvasRef.current;
-    if(canvas){
-        const context = canvas.getContext("2d")
-        if(context){
-            context.strokeStyle = "color"
-            context.lineTo(e.nativeEvent.clientX, e.nativeEvent.clientY)
-            context.stroke()
-        }
-    }
-}
 
 
 
-  return (
-    <canvas 
-    ref={canvasRef}
-    id = "canvas"
-    className = "w-full h-full absolute top-0 left-0"
-    onMouseDown = {startDrawing}
-    onMouseMove = {draw}
-    onMouseUp = {stopDrawing}
-    onMouseOut = {stopDrawing}
-    />
-    
-    
-  )
+    return (
+        <>
+            <div className="grid grid-cols gap 2">
+
+                <button
+                    onClick={() => setReset(true)}
+                    // variant = "default"
+                    color="black"
+                    className="z-20 bg-black text-white"
+                >
+                    Reset Canvas
+                </button>
+
+                <Group className="z-20">
+                    {/* here will map the color swatches*/}
+                    {SWATCHES.map((swatchColor: string) => (
+
+                        <ColorSwatch
+                            key={swatchColor}
+                            color={swatchColor}
+                            onClick={() => setColor(swatchColor)}
+                        />
+
+                    ))}
+                </Group>
+
+                <button
+                    onClick={() => sendData()}
+                    // variant = "default"
+                    color="black"
+                    className="z-20 bg-black text-white"
+                >
+                    Calculate
+                </button>
+
+
+            </div>
+            <canvas
+                ref={canvasRef}
+                id="canvas"
+                className="w-full h-full absolute top-0 left-0"
+                onMouseDown={startDrawing}
+                onMouseMove={draw}
+                onMouseUp={stopDrawing}
+                onMouseOut={stopDrawing}
+            />
+
+        </>
+
+    )
 }
