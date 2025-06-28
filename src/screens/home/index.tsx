@@ -16,8 +16,12 @@ interface Response {
 interface result {
     expression: string;
     result: string;
+
+    
 }
 
+
+const canvasRef = useRef<HTMLCanvasElement>(null)
 
 const [color, setColor] = useState('rgb(255, 255, 255)');
 const [reset, setReset] = useState(false);
@@ -64,7 +68,7 @@ const resetCanvas = () => {
 
 
 export default function index() {
-    const canvasRef = useRef<HTMLCanvasElement>(null)
+    
     const [isDrawing, setIsDrawing] = useState(false)
 
 
@@ -121,14 +125,14 @@ export default function index() {
         <>
             <div className="grid grid-cols gap 2">
 
-                <button
+                <Button
                     onClick={() => setReset(true)}
-                    // variant = "default"
+                    variant = "default"
                     color="black"
                     className="z-20 bg-black text-white"
                 >
                     Reset Canvas
-                </button>
+                </Button>
 
                 <Group className="z-20">
                     {/* here will map the color swatches*/}
@@ -143,14 +147,14 @@ export default function index() {
                     ))}
                 </Group>
 
-                <button
+                <Button
                     onClick={() => sendData()}
                     // variant = "default"
                     color="black"
                     className="z-20 bg-black text-white"
                 >
                     Calculate
-                </button>
+                </Button>
 
 
             </div>
