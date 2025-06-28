@@ -41,6 +41,11 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn  # The server that runs our FastAPI application.
 from apps.calculator.route import router as calculator_router # Importing our calculator routes
 from constants import SERVER_URL, PORT, ENV # Importing configuration variables
+from apps.calculator.route import router as calculator_router
+
+
+
+
 
 # The `lifespan` context manager is the modern way in FastAPI to handle logic that
 # needs to run exactly once when the application starts up, and once when it shuts down.
