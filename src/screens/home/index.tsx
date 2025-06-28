@@ -40,7 +40,9 @@ const stopDrawing = () =>{
     setIsDrawing(false)
 }
 
-const draw =(e: HTMLCanvasElement)=>{
+const draw =(e: React.MouseEvent<HTMLCanvasElement>)=>{
+    if(!isDrawing) return;
+
     const canvas = canvasRef.current;
     if(canvas){
         const context = canvas.getContext("2d")
@@ -60,6 +62,7 @@ const draw =(e: HTMLCanvasElement)=>{
     id = "canvas"
     className = "w-full h-full absolute top-0 left-0"
     onMouseDown = {startDrawing}
+    onMouseMove = {draw}
     onMouseUp = {stopDrawing}
     onMouseOut = {stopDrawing}
     />

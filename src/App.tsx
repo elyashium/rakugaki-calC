@@ -1,9 +1,26 @@
 import './App.css'
+import { createBrowserRouter, RouterProvider } from 'react-router-dom'
+import Home from '@/screens/home'
+import '@mantine/core/styles.css'
+import '@/index.css'
+import { MantineProvider } from '@mantine/core'
 
+const paths = [
+  {
+    path: "/",
+    element: <Home />,
+  },
+];
 
-export default function App() {
+const BrowserRouter = createBrowserRouter(paths);
+
+const App = () => {
   return (
-    <div>App</div>
+  <MantineProvider>
+    <RouterProvider router={BrowserRouter} />
+  </MantineProvider>
   )
-}
+};
+
+export default App;
 
