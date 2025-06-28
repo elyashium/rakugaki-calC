@@ -55,62 +55,187 @@ export default function Home() {
         }
     }
 
+    // Handle canvas reset when the reset button is clicked
     useEffect(() => {
         if (reset) {
             resetCanvas();
             setReset(false);
         }
     }, [reset]);
-    //using reset as dependency array because the canvas needs to be 
-    //reset when the reset button is clicked
 
-    //mounting the canvas with useEffect
+    // Function to get proper drawing coordinates from both mouse and touch events
+    const getCoordinates = (event: React.MouseEvent | React.TouchEvent | TouchEvent) => {
+        let clientX, clientY;
+        
+        // Check if it's a touch event
+        if ('touches' in event) {
+            // Prevent scrolling when drawing
+            event.preventDefault();
+            // Get the first touch point
+            clientX = event.touches[0].clientX;
+            clientY = event.touches[0].clientY;
+        } else {
+            // It's a mouse event
+            clientX = (event as React.MouseEvent).clientX;
+            clientY = (event as React.MouseEvent).clientY;
+        }
+
+        return { x: clientX, y: clientY };
+    };
+
+    // Initial canvas setup - runs only once
+    useEffect(() => {
+        const setupCanvas = () => {
+            const canvas = canvasRef.current;
+            if (canvas) {
+                const context = canvas.getContext("2d");
+                if (context) {
+                    // Try to save the current drawing state if canvas already has dimensions
+                    let imageData;
+                    try {
+                        if (canvas.width > 0 && canvas.height > 0) {
+                            imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                        }
+                    } catch (e) {
+                        console.log("Could not save canvas state", e);
+                    }
+                    
+                    // Set canvas dimensions to match viewport
+                    const rect = canvas.getBoundingClientRect();
+                    canvas.width = window.innerWidth;
+                    canvas.height = window.innerHeight - rect.top;
+                    
+                    // Set drawing properties
+                    context.lineWidth = 5;
+                    context.lineCap = "round";
+                    context.lineJoin = "round"; // Smoother line joins
+                    
+                    // Restore the drawing if there was one
+                    if (imageData && imageData.width > 0 && imageData.height > 0) {
+                        try {
+                            context.putImageData(imageData, 0, 0);
+                        } catch (e) {
+                            console.log("Canvas resized, couldn't restore exact drawing");
+                        }
+                    }
+                }
+            }
+        };
+        
+        // Initial setup
+        setupCanvas();
+        
+        // Add window resize event listener with debounce
+        let resizeTimer: number | null = null;
+        const handleResize = () => {
+            if (resizeTimer) {
+                window.clearTimeout(resizeTimer);
+            }
+            resizeTimer = window.setTimeout(() => {
+                setupCanvas();
+            }, 100);
+        };
+        
+        window.addEventListener('resize', handleResize);
+        window.addEventListener('orientationchange', handleResize);
+        
+        // Clean up event listeners on component unmount
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            window.removeEventListener('orientationchange', handleResize);
+            if (resizeTimer) {
+                window.clearTimeout(resizeTimer);
+            }
+        };
+    }, []);
+
+    // Handle background color changes separately
     useEffect(() => {
         const canvas = canvasRef.current;
         if (canvas) {
-            const context = canvas.getContext("2d")
-            if (context) {
-                canvas.style.background = canvasbg;
-                context.lineWidth = 5; //setting the line width
-                context.lineCap = "round" //setting the line cap
-                canvas.width = window.innerWidth;
-                canvas.height = window.innerHeight - canvas.offsetTop; //setting the height of the canvas
-            }
+            canvas.style.background = canvasbg;
         }
     }, [canvasbg]);
 
-    const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
         const canvas = canvasRef.current;
         if (canvas) {
-            canvas.style.cursor = "crosshair"
-            // canvas.style.background = canvasbg
-            const context = canvas.getContext("2d")
-            //this context is used to draw on the canvas
+            canvas.style.cursor = "crosshair";
+            const context = canvas.getContext("2d");
             if (context) {
+                const coords = getCoordinates(e);
                 context.beginPath();
-                context.moveTo(e.nativeEvent.clientX, e.nativeEvent.clientY)
-                setIsDrawing(true)
+                context.moveTo(coords.x, coords.y);
+                setIsDrawing(true);
             }
         }
-    }
+    };
 
     const stopDrawing = () => {
-        setIsDrawing(false)
-    }
+        setIsDrawing(false);
+    };
 
-    const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
         if (!isDrawing) return;
 
         const canvas = canvasRef.current;
         if (canvas) {
-            const context = canvas.getContext("2d")
+            const context = canvas.getContext("2d");
             if (context) {
+                const coords = getCoordinates(e);
                 context.strokeStyle = color;
-                context.lineTo(e.nativeEvent.clientX, e.nativeEvent.clientY)
-                context.stroke()
+                context.lineTo(coords.x, coords.y);
+                context.stroke();
             }
         }
-    }
+    };
+
+    // Add touch event handlers to the canvas element
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+
+        const handleTouchStart = (e: TouchEvent) => {
+            e.preventDefault(); // Prevent scrolling
+            const coords = getCoordinates(e);
+            const context = canvas.getContext("2d");
+            if (context) {
+                context.beginPath();
+                context.moveTo(coords.x, coords.y);
+                setIsDrawing(true);
+            }
+        };
+
+        const handleTouchMove = (e: TouchEvent) => {
+            if (!isDrawing) return;
+            e.preventDefault(); // Prevent scrolling
+            const coords = getCoordinates(e);
+            const context = canvas.getContext("2d");
+            if (context) {
+                context.strokeStyle = color;
+                context.lineTo(coords.x, coords.y);
+                context.stroke();
+            }
+        };
+
+        const handleTouchEnd = () => {
+            setIsDrawing(false);
+        };
+
+        // Add touch event listeners
+        canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+        canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+        canvas.addEventListener('touchend', handleTouchEnd);
+        canvas.addEventListener('touchcancel', handleTouchEnd);
+
+        // Clean up
+        return () => {
+            canvas.removeEventListener('touchstart', handleTouchStart);
+            canvas.removeEventListener('touchmove', handleTouchMove);
+            canvas.removeEventListener('touchend', handleTouchEnd);
+            canvas.removeEventListener('touchcancel', handleTouchEnd);
+        };
+    }, [color, isDrawing]); // Re-add event listeners if these dependencies change
 
     // Define common button styles based on canvasbg
     const getButtonStyles = () => ({
@@ -120,8 +245,8 @@ export default function Home() {
 
     return (
         <>
-            <div className="flex flex-row gap-5 justify-center items-center">
-
+            {/* Add a meta viewport tag for mobile devices */}
+            <div className="flex flex-row flex-wrap gap-3 justify-center items-center p-2 z-20 relative">
                 <Button
                     onClick={() => setReset(true)}
                     variant="default"
@@ -172,7 +297,7 @@ export default function Home() {
             <canvas
                 ref={canvasRef}
                 id="canvas"
-                className="w-full h-full absolute top-0 left-0"
+                className="w-full h-full absolute top-0 left-0 touch-none"
                 onMouseDown={startDrawing}
                 onMouseMove={draw}
                 onMouseUp={stopDrawing}
