@@ -27,6 +27,10 @@ export default function Home() {
     const [result, setResult] = useState<CalculationResult>({ expression: "", result: "" });
     const [dictOfVars, setDictOfVars] = useState({});
     const [canvasbg, setCanvasbg] = useState('black');
+    const [latex, setLatex] = useState<Array<string>>([]);
+    const [latexPosition, setLatexPosition] = useState({x: 10, y: 100});
+    const [isDragging, setIsDragging] = useState(false);
+    const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
 
 
     const sendData = async () => {
@@ -144,6 +148,27 @@ export default function Home() {
         
         // Initial setup
         setupCanvas();
+
+
+        //math latex to render the result 
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.9/config/TeX-MML-AM_CHTML.js'
+        script.async = true;
+        document.head.appendChild(script);
+
+        script.onload = () => {
+            // Use type assertion since MathJax types are not available
+            const MathJax = (window as any).MathJax;
+            if (MathJax && MathJax.Hub) {
+                MathJax.Hub.Config({
+                    inlineMath: [['$', '$'], ['\\(', '\\)']],
+                });
+            }
+        };
+
+        return () => {
+            document.head.removeChild(script);
+        };
         
         // Add window resize event listener with debounce
         let resizeTimer: number | null = null;
@@ -167,6 +192,9 @@ export default function Home() {
                 window.clearTimeout(resizeTimer);
             }
         };
+
+
+        
     }, []);
 
     // Handle background color changes separately
@@ -263,6 +291,130 @@ export default function Home() {
         color: canvasbg === 'black' ? 'black' : 'white'
     });
 
+    // Render LaTeX on canvas when result changes
+    useEffect(() => {
+        if (!result.expression && !result.result) return;
+        
+        const renderLatexToCanvas = () => {
+            const canvas = canvasRef.current;
+            if (!canvas) return;
+            
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+            
+            // Create a temporary div to render LaTeX
+            const tempDiv = document.createElement('div');
+            tempDiv.style.position = 'absolute';
+            tempDiv.style.left = '-9999px';
+            tempDiv.style.top = '-9999px';
+            tempDiv.style.color = canvasbg === 'black' ? 'white' : 'black';
+            tempDiv.style.fontSize = '24px';
+            
+            // Add the LaTeX content
+            const latexExpression = `$${result.expression}$`;
+            const latexResult = `$= ${result.result}$`;
+            
+            tempDiv.innerHTML = `<div>${latexExpression}</div><div>${latexResult}</div>`;
+            document.body.appendChild(tempDiv);
+            
+            // Process the LaTeX with MathJax
+            const MathJax = (window as any).MathJax;
+            if (MathJax && MathJax.Hub) {
+                MathJax.Hub.Queue(["Typeset", MathJax.Hub, tempDiv]);
+                
+                // Wait for MathJax to finish rendering
+                MathJax.Hub.Queue(() => {
+                    // Save current canvas state
+                    ctx.save();
+                    
+                    // Set text properties
+                    ctx.font = '24px Arial';
+                    ctx.fillStyle = canvasbg === 'black' ? 'white' : 'black';
+                    
+                    // Create new array of LaTeX elements
+                    const newLatex = [latexExpression, latexResult];
+                    setLatex(newLatex);
+                    
+                    // Get the LaTeX container that's already in the DOM
+                    const latexContainer = document.getElementById('latex-container');
+                    if (latexContainer) {
+                        latexContainer.innerHTML = `<div>${latexExpression}</div><div>${latexResult}</div>`;
+                        latexContainer.style.color = canvasbg === 'black' ? 'white' : 'black';
+                        
+                        // Re-process with MathJax
+                        MathJax.Hub.Queue(["Typeset", MathJax.Hub, latexContainer]);
+                    }
+                    
+                    // Restore canvas state
+                    ctx.restore();
+                    
+                    // Remove the temporary div
+                    document.body.removeChild(tempDiv);
+                });
+            }
+        };
+        
+        // Render LaTeX after a short delay to ensure MathJax is loaded
+        const timer = setTimeout(() => {
+            renderLatexToCanvas();
+        }, 500);
+        
+        return () => clearTimeout(timer);
+    }, [result, canvasbg, latexPosition]);
+
+    // Handle dragging of the LaTeX container
+    const handleLatexMouseDown = (e: React.MouseEvent) => {
+        // Only start drag if it's not a drawing operation
+        if (e.button === 0) { // Left mouse button
+            setIsDragging(true);
+            setDragOffset({
+                x: e.clientX - latexPosition.x,
+                y: e.clientY - latexPosition.y
+            });
+            e.stopPropagation(); // Prevent canvas drawing
+        }
+    };
+
+    const handleLatexMouseMove = (e: React.MouseEvent) => {
+        if (isDragging) {
+            setLatexPosition({
+                x: e.clientX - dragOffset.x,
+                y: e.clientY - dragOffset.y
+            });
+            e.stopPropagation(); // Prevent canvas drawing
+        }
+    };
+
+    const handleLatexMouseUp = () => {
+        setIsDragging(false);
+    };
+
+    // Add global mouse event listeners for dragging
+    useEffect(() => {
+        const mouseMoveHandler = (e: MouseEvent) => {
+            if (isDragging) {
+                setLatexPosition({
+                    x: e.clientX - dragOffset.x,
+                    y: e.clientY - dragOffset.y
+                });
+            }
+        };
+        
+        const mouseUpHandler = () => {
+            setIsDragging(false);
+        };
+        
+        if (isDragging) {
+            document.addEventListener('mousemove', mouseMoveHandler);
+            document.addEventListener('mouseup', mouseUpHandler);
+        }
+        
+        return () => {
+            document.removeEventListener('mousemove', mouseMoveHandler);
+            document.removeEventListener('mouseup', mouseUpHandler);
+        };
+    }, [isDragging, dragOffset.x, dragOffset.y]);
+
     return (
         <>
             {/* Add a meta viewport tag for mobile devices */}
@@ -303,6 +455,17 @@ export default function Home() {
                     Calculate
                 </Button>
 
+                {(result.expression || result.result) && (
+                    <Button
+                        onClick={() => setResult({ expression: "", result: "" })}
+                        variant="default"
+                        className="z-20"
+                        style={getButtonStyles()}
+                    >
+                        Clear Result
+                    </Button>
+                )}
+
                 <Button
                     onClick={() => setCanvasbg(canvasbg === 'black' ? 'white' : 'black')}
                     variant="default"
@@ -323,6 +486,21 @@ export default function Home() {
                 onMouseUp={stopDrawing}
                 onMouseOut={stopDrawing}
             />
+            
+            {/* LaTeX result display container */}
+            {(result.expression || result.result) && (
+                <div 
+                    id="latex-container" 
+                    className="absolute z-30 p-4 rounded-md bg-opacity-70 cursor-move"
+                    style={{
+                        top: `${latexPosition.y}px`,
+                        left: `${latexPosition.x}px`,
+                        color: canvasbg === 'black' ? 'white' : 'black',
+                        backgroundColor: canvasbg === 'black' ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.7)'
+                    }}
+                    onMouseDown={handleLatexMouseDown}
+                />
+            )}
         </>
     )
 }
