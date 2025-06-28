@@ -10,6 +10,7 @@ from .utils import analyze # Correctly import the 'analyze' function.
 import base64
 from io import BytesIO
 from PIL import Image
+import json
 
 # Create an instance of APIRouter. This `router` object is what we'll use to
 # define all the routes for this module.
@@ -44,6 +45,8 @@ async def calculate_from_image(payload: ImagePayload):
         image_data_url = payload.data
         variables = payload.dict_of_vars
 
+        print(f"Received variables: {variables}")
+
         # Extract the base64 encoded image data
         if "," in image_data_url:
             header, encoded = image_data_url.split(",", 1)
@@ -53,10 +56,20 @@ async def calculate_from_image(payload: ImagePayload):
             # --- Calling the analyze function ---
             # Now we call the imported 'analyze' function with the processed image and variables.
             analysis_result = analyze(img=image, dict_of_vars=variables)
-
-            print(f"Received image data URL (first 50 chars): {image_data_url[:50]}...")
-            print(f"Received variables: {variables}")
-
+            
+            print(f"Analysis result: {analysis_result}")
+            
+            # Ensure we're returning a list
+            if not isinstance(analysis_result, list):
+                analysis_result = [analysis_result]
+                
+            # If the list is empty, provide a default result
+            if len(analysis_result) == 0:
+                analysis_result = [{"expr": "No expression detected", "result": "N/A", "assign": False}]
+                
+            # Print the response in JSON format for debugging
+            print(json.dumps(analysis_result))
+            
             return analysis_result
         else:
             raise HTTPException(status_code=400, detail="Invalid image data format")

@@ -37,6 +37,7 @@ export default function Home() {
         const canvas = canvasRef.current;
         if (canvas) {
             try {
+                console.log("Sending data to server...");
                 const response = await axios({
                     method: "post",
                     url: `${import.meta.env.VITE_API_URL}/calculate/`,
@@ -50,14 +51,37 @@ export default function Home() {
                 });
                 
                 const data = response.data;
-                console.log('data', data);
+                console.log("Raw response data:", data);
+                console.log("Response data type:", typeof data);
                 
                 if (data && Array.isArray(data) && data.length > 0) {
                     const firstResult = data[0];
+                    console.log("First result:", firstResult);
+                    
                     setResult({
                         expression: firstResult.expr || "",
                         result: firstResult.result || ""
                     });
+                    console.log("Setting result:", firstResult.expr, firstResult.result);
+                } else if (typeof data === 'string') {
+                    try {
+                        // Try to parse if it's a JSON string
+                        const parsedData = JSON.parse(data);
+                        console.log("Parsed data:", parsedData);
+                        
+                        if (Array.isArray(parsedData) && parsedData.length > 0) {
+                            const firstResult = parsedData[0];
+                            setResult({
+                                expression: firstResult.expr || "",
+                                result: firstResult.result || ""
+                            });
+                            console.log("Setting result from parsed data:", firstResult.expr, firstResult.result);
+                        }
+                    } catch (parseError) {
+                        console.error("Error parsing response as JSON:", parseError);
+                    }
+                } else {
+                    console.log("No valid data in response");
                 }
             } catch (error) {
                 console.error("Error sending data:", error);
@@ -112,7 +136,7 @@ export default function Home() {
         const setupCanvas = () => {
             const canvas = canvasRef.current;
             if (canvas) {
-                const context = canvas.getContext("2d");
+                const context = canvas.getContext("2d", { willReadFrequently: true });
                 if (context) {
                     // Try to save the current drawing state if canvas already has dimensions
                     let imageData;
@@ -150,25 +174,32 @@ export default function Home() {
         setupCanvas();
 
 
-        //math latex to render the result 
-        const script = document.createElement('script');
-        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.9/config/TeX-MML-AM_CHTML.js'
-        script.async = true;
-        document.head.appendChild(script);
-
-        script.onload = () => {
-            // Use type assertion since MathJax types are not available
-            const MathJax = (window as any).MathJax;
-            if (MathJax && MathJax.Hub) {
-                MathJax.Hub.Config({
-                    inlineMath: [['$', '$'], ['\\(', '\\)']],
-                });
-            }
-        };
-
-        return () => {
-            document.head.removeChild(script);
-        };
+        // Load MathJax
+        if (!(window as any).MathJax) {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js';
+            script.async = true;
+            script.id = 'mathjax-script';
+            
+            // Configure MathJax
+            (window as any).MathJax = {
+                tex: {
+                    inlineMath: [['$', '$'], ['\\(', '\\)']]
+                },
+                svg: {
+                    fontCache: 'global'
+                }
+            };
+            
+            document.head.appendChild(script);
+            
+            return () => {
+                const mathJaxScript = document.getElementById('mathjax-script');
+                if (mathJaxScript) {
+                    document.head.removeChild(mathJaxScript);
+                }
+            };
+        }
         
         // Add window resize event listener with debounce
         let resizeTimer: number | null = null;
@@ -192,9 +223,6 @@ export default function Home() {
                 window.clearTimeout(resizeTimer);
             }
         };
-
-
-        
     }, []);
 
     // Handle background color changes separately
@@ -294,12 +322,13 @@ export default function Home() {
     // Render LaTeX on canvas when result changes
     useEffect(() => {
         if (!result.expression && !result.result) return;
+        console.log("Result changed:", result);
         
         const renderLatexToCanvas = () => {
             const canvas = canvasRef.current;
             if (!canvas) return;
             
-            const ctx = canvas.getContext('2d');
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
             if (!ctx) return;
             
             // Create a temporary div to render LaTeX
@@ -319,21 +348,10 @@ export default function Home() {
             
             // Process the LaTeX with MathJax
             const MathJax = (window as any).MathJax;
-            if (MathJax && MathJax.Hub) {
-                MathJax.Hub.Queue(["Typeset", MathJax.Hub, tempDiv]);
-                
-                // Wait for MathJax to finish rendering
-                MathJax.Hub.Queue(() => {
-                    // Save current canvas state
-                    ctx.save();
-                    
-                    // Set text properties
-                    ctx.font = '24px Arial';
-                    ctx.fillStyle = canvasbg === 'black' ? 'white' : 'black';
-                    
-                    // Create new array of LaTeX elements
-                    const newLatex = [latexExpression, latexResult];
-                    setLatex(newLatex);
+            if (MathJax) {
+                // For MathJax v3
+                if (MathJax.typeset) {
+                    MathJax.typeset([tempDiv]);
                     
                     // Get the LaTeX container that's already in the DOM
                     const latexContainer = document.getElementById('latex-container');
@@ -342,22 +360,58 @@ export default function Home() {
                         latexContainer.style.color = canvasbg === 'black' ? 'white' : 'black';
                         
                         // Re-process with MathJax
-                        MathJax.Hub.Queue(["Typeset", MathJax.Hub, latexContainer]);
+                        MathJax.typeset([latexContainer]);
                     }
                     
-                    // Restore canvas state
-                    ctx.restore();
+                    // Create new array of LaTeX elements
+                    const newLatex = [latexExpression, latexResult];
+                    setLatex(newLatex);
                     
                     // Remove the temporary div
                     document.body.removeChild(tempDiv);
-                });
+                }
+                // For MathJax v2 (fallback)
+                else if (MathJax.Hub) {
+                    MathJax.Hub.Queue(["Typeset", MathJax.Hub, tempDiv]);
+                    
+                    MathJax.Hub.Queue(() => {
+                        // Get the LaTeX container that's already in the DOM
+                        const latexContainer = document.getElementById('latex-container');
+                        if (latexContainer) {
+                            latexContainer.innerHTML = `<div>${latexExpression}</div><div>${latexResult}</div>`;
+                            latexContainer.style.color = canvasbg === 'black' ? 'white' : 'black';
+                            
+                            // Re-process with MathJax
+                            MathJax.Hub.Queue(["Typeset", MathJax.Hub, latexContainer]);
+                        }
+                        
+                        // Create new array of LaTeX elements
+                        const newLatex = [latexExpression, latexResult];
+                        setLatex(newLatex);
+                        
+                        // Remove the temporary div
+                        document.body.removeChild(tempDiv);
+                    });
+                }
+            } else {
+                console.error("MathJax not loaded");
+                
+                // Fallback to plain text if MathJax is not available
+                const latexContainer = document.getElementById('latex-container');
+                if (latexContainer) {
+                    latexContainer.innerHTML = `
+                        <div>Expression: ${result.expression}</div>
+                        <div>Result: ${result.result}</div>
+                    `;
+                    latexContainer.style.color = canvasbg === 'black' ? 'white' : 'black';
+                }
             }
         };
         
         // Render LaTeX after a short delay to ensure MathJax is loaded
         const timer = setTimeout(() => {
             renderLatexToCanvas();
-        }, 500);
+        }, 1000); // Increased timeout to ensure MathJax is fully loaded
         
         return () => clearTimeout(timer);
     }, [result, canvasbg, latexPosition]);
@@ -491,15 +545,23 @@ export default function Home() {
             {(result.expression || result.result) && (
                 <div 
                     id="latex-container" 
-                    className="absolute z-30 p-4 rounded-md bg-opacity-70 cursor-move"
+                    className="absolute z-30 p-4 rounded-md bg-opacity-70 cursor-move border-2"
                     style={{
                         top: `${latexPosition.y}px`,
                         left: `${latexPosition.x}px`,
                         color: canvasbg === 'black' ? 'white' : 'black',
-                        backgroundColor: canvasbg === 'black' ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.7)'
+                        backgroundColor: canvasbg === 'black' ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.7)',
+                        borderColor: canvasbg === 'black' ? 'white' : 'black',
+                        minWidth: '200px',
+                        minHeight: '100px',
+                        fontSize: '18px'
                     }}
                     onMouseDown={handleLatexMouseDown}
-                />
+                >
+                    {/* Fallback content in case MathJax fails */}
+                    <div className="font-bold">Expression: {result.expression}</div>
+                    <div className="font-bold">Result: {result.result}</div>
+                </div>
             )}
         </>
     )
