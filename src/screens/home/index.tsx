@@ -1,5 +1,31 @@
 //making a HTMLcanvas with ref hook
 import { useRef, useState, useEffect } from "react"
+import { SWATCHES } from "@/constants"
+import { ColorSwatch, Group } from "@mantine/core"
+import { Button } from "@mantine/core"
+import axios from "axios"
+
+
+
+
+const [color, setColor] = useState('rgb(255, 255, 255)');
+const[reset, setReset] = useState(false);
+
+useEffect(()=>{
+if(reset){
+    resetCanvas();
+    setReset(false);
+}
+}[reset]);
+//using reset as dependency array because the canvas needs to be 
+//reset when the reset button is clicked
+
+const resetCanvas = () =>{
+    const canvas = canvasRef.current;
+    if(canvas){
+        const context = canvas.getContext("2d")
+    }
+}
 
 
 export default function index() {
@@ -47,7 +73,7 @@ const draw =(e: React.MouseEvent<HTMLCanvasElement>)=>{
     if(canvas){
         const context = canvas.getContext("2d")
         if(context){
-            context.strokeStyle = "white"
+            context.strokeStyle = "color"
             context.lineTo(e.nativeEvent.clientX, e.nativeEvent.clientY)
             context.stroke()
         }
