@@ -134,3 +134,5 @@ This project uses **GitHub Actions** for its CI/CD pipeline. The workflow is def
     2.  **build-and-push-backend:** Builds the FastAPI application's Docker image and pushes it to Docker Hub as `your-username/rakugaki-calc-backend:latest`.
 
 You will need to configure `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` as secrets in your GitHub repository settings for the pipeline to publish the images successfully. 
+
+
