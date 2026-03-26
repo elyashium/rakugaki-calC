@@ -1,138 +1,107 @@
 # Rakugaki Calculator
 
-This project is a full-stack application that allows you to draw mathematical expressions on a canvas, which are then recognized and solved by a backend service powered by AI.
+## Abstract
+Rakugaki Calculator is an intelligent, full-stack web application designed to recognize, interpret, and solve handwritten mathematical expressions and graphical word problems. The project bridges human-computer interaction by utilizing an interactive frontend drawing canvas and an asynchronous backend powered by state-of-the-art multimodal Large Language Models (LLMs) to perform complex mathematical reasoning and optical character recognition (OCR) simultaneously.
 
-The application consists of two main parts:
-*   **Frontend**: A React application built with Vite that provides the drawing canvas and user interface.
-*   **Backend**: A Python FastAPI server that uses Google's Gemini AI to interpret the drawn image and calculate the result.
+## System Architecture
+The application relies on a decoupled client-server architecture to ensure scalability and maintainability.
 
-The entire application is containerized using Docker and includes a CI/CD pipeline with GitHub Actions to automatically build and publish the images to Docker Hub.
+*   **Frontend (Client)**: Built with React and structured via the Vite build tool. It acts as the interactive interface where users draw equations on a digital canvas.
+*   **Backend (Server)**: A high-performance Python application built utilizing the FastAPI framework. It handles incoming image payloads, processes them mathematically, and interfaces with the external Artificial Intelligence provider.
+*   **AI Engine**: Integrated with the Groq API utilizing the `meta-llama/llama-4-scout-17b-16e-instruct` multimodal vision model. This model provides ultra-low latency inference to examine the visual input and return structured, calculated JSON objects.
 
----
+## How the Application Works
 
-## Prerequisites
+The data flow from a user's drawing to the final calculated answer involves sequential processing steps:
 
-Before you begin, ensure you have the following installed on your system:
-
-*   **For Local Development:**
-    *   [Node.js](https://nodejs.org/) (v18 or newer)
-    *   [Python](https://www.python.org/) (v3.9 or newer)
-    *   `pip` and `venv` for Python package management.
-*   **For Docker Development:**
-    *   [Docker](https://www.docker.com/products/docker-desktop/)
-    *   [Docker Compose](https://docs.docker.com/compose/install/) (included with Docker Desktop)
-
----
-
-## Getting Started
-
-There are two ways to run this project: locally for development or with Docker for a production-like environment.
-
-### Method 1: Running with Docker (Recommended)
-
-This is the simplest way to get the application running, as it handles all dependencies and networking automatically. This method uses the pre-built images from Docker Hub that are published by our CI/CD pipeline.
-
-**1. Clone the repository:**
-```bash
-git clone <your-repository-url>
-cd rakugaki-calc
-```
-
-**2. Create the backend environment file:**
-
-The backend requires an API key for the Gemini service.
-
-*   Navigate to the `server` directory: `cd server`
-*   Create a file named `.env`:
-    ```
-    GEMINI_API_KEY=your_google_gemini_api_key_here
-    ```
-*   Return to the root directory: `cd ..`
-
-**3. Run with Docker Compose:**
-
-From the root of the project, run the following command:
-
-```bash
-docker-compose up
-```
-
-Docker Compose will pull the latest `frontend` and `backend` images from Docker Hub, create a network, and start both containers.
-
-Once the containers are running, you can access:
-*   **Frontend:** [http://localhost:5173](http://localhost:5173)
-*   **Backend API Docs:** [http://localhost:8000/docs](http://localhost:8000/docs)
+1.  **User Interaction**: The user sketches mathematical equations, variable assignments, or graphical math scenarios onto the React-based canvas.
+2.  **Data Extraction**: The frontend extracts the drawing as a raw image data URL and transmits the payload to the backend via a RESTful HTTP POST request. This payload includes any active mathematical variables the user has predefined.
+3.  **Image Processing**: 
+    *   The FastAPI backend receives the base64 string and decodes it into a Python Image Library (PIL) object.
+    *   Because transparent alpha channels (RGBA) are inherent to the canvas but unsupported by standard JPEG encoding algorithms, the backend composites the drawing onto a solid white background mapping. The result is converted to a flattened RGB format.
+4.  **AI Inference & Prompt Engineering**: The sanitized JPEG is base64-encoded and dispatched to the Groq Vision model along with a strict instructional prompt. The LLM is programmed to adhere to PEMDAS arithmetic rules, handle variable assignments (e.g., x=4), solve variable systems, and interpret literal graphical scenarios.
+5.  **Data Transformation**: The model responds with natural language embedded with structured data. The backend passes this response through a multi-tiered parsing engine utilizing Python's Abstract Syntax Trees (AST) and Regular Expressions (Regex). This algorithm isolates and secures the raw JSON dictionaries.
+6.  **Result Rendering**: The FastAPI server issues a 200 OK response containing the structured data, instructing the React frontend to update its state and display the final calculated answer and detected expression on the user's screen.
 
 ---
 
-### Method 2: Running Locally for Development
+## Local Development Setup
 
-Follow these steps if you want to run the frontend and backend servers directly on your machine.
+To run this application locally on your machine, you must configure both the frontend and backend servers. 
 
-**1. Clone the repository:**
-```bash
-git clone <your-repository-url>
-cd rakugaki-calc
-```
+### Prerequisites
+*   Node.js (v18 or newer)
+*   Python (v3.9 or newer)
+*   A valid Groq API Key
 
-**2. Set up the Backend (Server):**
+### 1. Backend Server Configuration
+The backend requires a Python virtual environment to manage its dependencies securely.
 
-*   Navigate to the server directory:
-    ```bash
-    cd server
-    ```
-*   Create a Python virtual environment and activate it:
-    ```bash
-    # For Windows
-    python -m venv .venv
-    .venv\Scripts\activate
+1. Navigate to the server directory:
+   ```bash
+   cd server
+   ```
+2. Create and activate a Python virtual environment:
+   ```bash
+   # Windows
+   python -m venv .venv
+   source .venv/Scripts/activate
+   
+   # Linux/macOS
+   python3 -m venv .venv
+   source .venv/bin/activate
+   ```
+3. Install the required Python packages into the isolated environment:
+   ```bash
+   pip install -r requirements.txt
+   ```
+4. Configure the environment variables by ensuring the `.env` file exists in the `server` directory. It must contain your Groq API key:
+   ```env
+   ENV=dev
+   SERVER_URL=0.0.0.0
+   PORT=8000
+   GROQ_API_KEY=your_actual_groq_api_key_here
+   ```
+5. Start the FastAPI uvicorn server:
+   ```bash
+   uvicorn main:app --reload --port 8000
+   ```
+   The backend will be live at `http://localhost:8000`. You can test the endpoints at the auto-generated documentation via `http://localhost:8000/docs`.
 
-    # For macOS/Linux
-    python3 -m venv .venv
-    source .venv/bin/activate
-    ```
-*   Install the required Python packages:
-    ```bash
-    pip install -r requirements.txt
-    ```
-*   Create a `.env` file and add your Gemini API key:
-    ```
-    GEMINI_API_KEY=your_google_gemini_api_key_here
-    ```
-*   Run the backend server:
-    ```bash
-    uvicorn main:app --reload --port 8000
-    ```
-    The server will be available at `http://localhost:8000`.
+### 2. Frontend Client Configuration
+The frontend uses the Node Package Manager to assemble its UI dependencies.
 
-**3. Set up the Frontend (Client):**
-
-*   Open a **new terminal** and navigate to the client directory:
-    ```bash
-    cd client
-    ```
-*   Install the required Node.js packages:
-    ```bash
-    npm install
-    ```
-*   The frontend needs to know where the backend API is. An environment file for this is already included (`.env.development`), so no changes are needed. It correctly points to `http://localhost:8000`.
-*   Run the frontend development server:
-    ```bash
-    npm run dev
-    ```
-    The application will be available at `http://localhost:5173`.
+1. Open a new terminal session and navigate to the client directory:
+   ```bash
+   cd client
+   ```
+2. Install the application dependencies:
+   ```bash
+   npm install
+   ```
+3. Verify the frontend environment variables. Ensure the `.env.development` file points to your local backend server:
+   ```env
+   VITE_API_URL=http://localhost:8000
+   ```
+4. Start the Vite development server:
+   ```bash
+   npm run dev
+   ```
+   The interactive application will be accessible via your browser at `http://localhost:5173`.
 
 ---
 
-## CI/CD Pipeline
+## Deployment Automation (CI/CD)
 
-This project uses **GitHub Actions** for its CI/CD pipeline. The workflow is defined in `.github/workflows/ci.yml`.
+The application includes a workflow configuration for deployment.
 
-*   **Trigger:** The pipeline automatically runs on every `push` to the `master` branch.
-*   **Jobs:**
-    1.  **build-and-push-frontend:** Builds the React application's Docker image and pushes it to Docker Hub as `your-username/rakugaki-calc-client:latest`.
-    2.  **build-and-push-backend:** Builds the FastAPI application's Docker image and pushes it to Docker Hub as `your-username/rakugaki-calc-backend:latest`.
+### Automated Docker Registry
+The repository includes a GitHub Actions configuration `.github/workflows/ci.yml`. On every successful merge or push to the `master` branch, the workflow triggers the following automated sequence:
+1. Provisions an Ubuntu computing environment.
+2. Checks out the repository source code.
+3. Authenticates with your Docker Hub account securely utilizing Repository Secrets (`DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`).
+4. Compiles the optimized `Dockerfile` for the frontend client (served behind an NGINX proxy layer) and the `Dockerfile` for the backend FastAPI server.
+5. Pushes the immutable, versioned production containers directly to the container registry.
 
-You will need to configure `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` as secrets in your GitHub repository settings for the pipeline to publish the images successfully. 
-
-
+### Serverless Hosting Consideration
+Because the system is fully containerized and the web tiers are strictly decoupled, the architecture supports rapid deployment on modern zero-configuration Platforms as a Service (PaaS). The frontend static assets can be directly distributed globally on Edge networks like Vercel or Netlify, while the backend APIs operate efficiently in serverless environments such as Render or AWS ECS. 

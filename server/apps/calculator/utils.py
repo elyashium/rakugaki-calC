@@ -1,20 +1,19 @@
-import google.generativeai as genai
 import ast
 import json
 import re
+import base64
+from io import BytesIO
 from PIL import Image
-from constants import GEMINI_API_KEY
+from groq import Groq
+from constants import GROQ_API_KEY
 
-genai.configure(api_key=GEMINI_API_KEY)
-#since we dont want the model to run everytime, just one intilaistion before 
-#the analyse function.
-model =genai.GenerativeModel("gemini-1.5-flash")
+client = Groq(api_key=GROQ_API_KEY)
 
-def analyze(img : Image, dict_of_vars : dict):
-    #dumping the dict of vars into a json string for passing into the prompt
+def analyze(img: Image, dict_of_vars: dict):
+    # dumping the dict of vars into a json string for passing into the prompt
     dict_of_vars_json = json.dumps(dict_of_vars)
 
-    prompt=(
+    prompt = (
          f"You have been given an image with some mathematical expressions, equations, or graphical problems, and you need to solve them. "
         f"Note: Use the PEMDAS rule for solving mathematical expressions. PEMDAS stands for the Priority Order: Parentheses, Exponents, Multiplication and Division (from left to right), Addition and Subtraction (from left to right). Parentheses have the highest priority, followed by Exponents, then Multiplication and Division, and lastly Addition and Subtraction. "
         f"For example: "
@@ -35,20 +34,61 @@ def analyze(img : Image, dict_of_vars : dict):
         f"DO NOT USE BACKTICKS OR MARKDOWN FORMATTING. "
         f"PROPERLY QUOTE THE KEYS AND VALUES IN THE DICTIONARY FOR EASIER PARSING WITH Python's ast.literal_eval."
     )
-    response = model.generate_content([prompt, img])
-    print(response.text)
+    
+    # Convert PIL image to base64
+    # JPEG does not support transparency (RGBA). If the canvas image has an alpha
+    # channel (which it does), we composite it onto a white background first.
+    buffered = BytesIO()
+    if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
+        background = Image.new("RGB", img.size, (255, 255, 255))
+        background.paste(img, mask=img.split()[-1])  # Use alpha channel as mask
+        img_to_encode = background
+    else:
+        img_to_encode = img.convert("RGB")
+    img_to_encode.save(buffered, format="JPEG", quality=90)
+    base64_image = base64.b64encode(buffered.getvalue()).decode('utf-8')
+    
+    response_text = ""
+    try:
+        # Using Llama 4 Scout — Groq's current supported multimodal vision model.
+        # Supports base64 encoded images up to 4MB, max 5 images per request.
+        completion = client.chat.completions.create(
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{base64_image}"
+                            }
+                        }
+                    ]
+                }
+            ],
+            temperature=0.1,
+            max_completion_tokens=1024
+        )
+        response_text = completion.choices[0].message.content
+        print(response_text)
+    except Exception as e:
+        print(f"Error calling Groq: {e}")
+        return [{"expr": "Groq Error", "result": str(e), "assign": False}]
+
     answers = []
     
     try:
         # First try direct ast.literal_eval
-        answers = ast.literal_eval(response.text)
+        answers = ast.literal_eval(response_text)
     except Exception as e:
         print(f"Error in direct parsing: {e}")
         
         try:
             # Try to extract JSON from the response
             # Look for JSON pattern in the response
-            json_match = re.search(r'\[\s*{.*}\s*\]', response.text, re.DOTALL)
+            json_match = re.search(r'\[\s*\{.*\}\s*\]', response_text, re.DOTALL)
             if json_match:
                 json_str = json_match.group(0)
                 # Replace single quotes with double quotes for proper JSON
@@ -57,8 +97,8 @@ def analyze(img : Image, dict_of_vars : dict):
                 print(f"Extracted JSON: {json_str}")
             else:
                 # Try to extract key information directly
-                expr_match = re.search(r"expr[\'\"]\s*:\s*[\'\"](.*?)[\'\"]", response.text)
-                result_match = re.search(r"result[\'\"]\s*:\s*([\'\"]?.*?[\'\"]?)[,}]", response.text)
+                expr_match = re.search(r"expr[\'\"]\s*:\s*[\'\"](.*?)[\'\"]", response_text)
+                result_match = re.search(r"result[\'\"]\s*:\s*([\'\"]?.*?[\'\"]?)[,}]", response_text)
                 
                 if expr_match and result_match:
                     expr = expr_match.group(1)
@@ -83,7 +123,7 @@ def analyze(img : Image, dict_of_vars : dict):
     # If we still have no answers, create a default one based on the response text
     if not answers:
         # Try to extract any mathematical expression from the response
-        math_expr = re.search(r'(\d+[\+\-\*/]\d+(?:[\+\-\*/]\d+)*)', response.text)
+        math_expr = re.search(r'(\d+[\+\-\*/]\d+(?:[\+\-\*/]\d+)*)', response_text)
         if math_expr:
             expr = math_expr.group(1)
             try:

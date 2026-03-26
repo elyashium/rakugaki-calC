@@ -29,4 +29,4 @@ SERVER_URL = os.getenv("SERVER_URL")
 # The port number the server will run on.
 PORT = os.getenv("PORT")
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")    
+GROQ_API_KEY = os.getenv("GEMINI_API_KEY")
